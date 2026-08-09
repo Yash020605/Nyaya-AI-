@@ -13,25 +13,21 @@ router = APIRouter()
 # How it will evolve: Later we will add dense vector similarity search, 
 # sparse BM25 query logic, and MongoDB document fetchers.
 
+from app.services.ai_service import ai_service
+
 @router.get("/search")
 async def search_cases(q: str, limit: int = 5):
-    """Endpoint to search for relevant criminal cases.
-    Currently returns a mock payload until Qdrant is connected.
     """
-    if not q:
+    Endpoint to search for relevant criminal cases.
+    Queries Qdrant vector database using dense embeddings.
+    """
+    if not q or not q.strip():
         raise HTTPException(status_code=400, detail="Query parameter 'q' is required")
+        
+    results = await ai_service.search_legal_database(query=q, limit=limit)
     return {
         "query": q,
-        "results": [
-            {
-                "title": "State of Maharashtra v. XYZ (Mock Case)",
-                "citation": "2024 INSC 999",
-                "relevance_score": 0.95,
-                "snippet": "This is a placeholder result showing semantic matching on criminal bail issues.",
-                "mongo_id": "mock_mongo_id_123",
-                "page_number": 3
-            }
-        ]
+        "results": results
     }
 
 
@@ -40,9 +36,7 @@ async def get_document(doc_id: str):
     """
     Endpoint to retrieve the full document context from MongoDB.
     """
-    return {
-        "id": doc_id,
-        "title": "State of Maharashtra v. XYZ (Mock Case)",
-        "full_text": "This is the complete text of the judgment fetched from MongoDB...",
-        "citation": "2024 INSC 999"
-    }
+    if not doc_id:
+        raise HTTPException(status_code=400, detail="Document ID is required")
+        
+    return await ai_service.get_document_by_id(doc_id)
