@@ -15,23 +15,23 @@ from app.api.v1.router import api_router
 # How it will evolve: Later we can add database startup/shutdown lifespan 
 # handlers (to connect/disconnect MongoDB and Qdrant clients gracefully).
 
-# app = FastAPI(
-#     title=settings.PROJECT_NAME,
-#     openapi_url=f"{settings.API_V1_STR}/openapi.json"
-# )
+app = FastAPI(
+    title = settings.PROJECT_NAME,
+    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+)
 
 # # Set all CORS enabled origins
-# if settings.BACKEND_CORS_ORIGINS:
-#     app.add_middleware(
-#         CORSMiddleware,
-#         allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
-#         allow_credentials=True,
-#         allow_methods=["*"],
-#         allow_headers=["*"],
-#     )
+if settings.BACKEND_CORS_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
-# app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(api_router, prefix=settings.API_V1_STR)
 
-# @app.get("/")
-# async def root():
-#     return {"message": "Welcome to the NyayaAI API. Access /docs for interactive documentation."}
+@app.get("/")
+async def root():
+    return {"message": "Welcome to the NyayaAI API. Access /docs for interactive documentation."}
