@@ -1,4 +1,7 @@
+import asyncio
 from typing import Dict, Any, List
+from app.services.llm_service import llm_service
+from app.prompts.legal_prompts import SC_DRAFTING_SYSTEM_PROMPT, get_sc_section_prompt
 
 class AIService:
     """
@@ -10,10 +13,6 @@ class AIService:
     """
     
     def __init__(self):
-        # In future milestones, we will initialize clients here:
-        # self.qdrant_client = QdrantClient(...)
-        # self.mongo_client = MongoClient(...)
-        # self.gemini_model = ...
         pass
 
     async def search_legal_database(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
@@ -21,8 +20,7 @@ class AIService:
         Executes hybrid semantic search on Qdrant and gathers matching documents from MongoDB.
         Returns a structured list of case hits.
         """
-        # TODO: Implement Qdrant query, MongoDB fetch, and fallback web search
-        # Mock payload:
+        # TODO: Implement Qdrant query, MongoDB fetch, and fallback web search in Milestones 4-6
         return [
             {
                 "title": "State of Maharashtra v. XYZ (Mock Precedent)",
@@ -37,18 +35,24 @@ class AIService:
     async def generate_supreme_court_draft(self, case_data: dict) -> Dict[str, str]:
         """
         Processes case timeline and facts through sectioned LLM prompting models.
-        Returns draft texts aligned with Supreme Court filing rules.
+        Compiles the 5 core Supreme Court petition sections concurrently.
         """
-        # TODO: Implement templates loading, LLM completions, and section stitching
-        # Mock payload:
-        facts = case_data.get("facts", "Default facts")
-        return {
-            "synopsis": f"Synopsis of the petition based on facts: {facts[:100]}...",
-            "list_of_dates": "1. 02/08/2026: Incident reported\n2. 05/08/2026: FIR registered",
-            "questions_of_law": "Whether standard bail terms were violated by the High Court?",
-            "grounds": "Ground A: Failure to appreciate procedural irregularities under BNSS.",
-            "prayer": "Therefore, the petitioner prays for relief as per rules."
-        }
+        facts = case_data.get("facts", "")
+        offences = case_data.get("offences", "")
+
+        sections = ["synopsis", "list_of_dates", "questions_of_law", "grounds", "prayer"]
+
+        async def generate_single_section(sec_name: str) -> tuple[str, str]:
+            prompt = get_sc_section_prompt(sec_name, facts, offences)
+            completion = await llm_service.generate_completion(
+                prompt=prompt,
+                system_instruction=SC_DRAFTING_SYSTEM_PROMPT
+            )
+            return sec_name, completion
+
+        # Generate all 5 sections concurrently for high performance
+        results = await asyncio.gather(*[generate_single_section(sec) for sec in sections])
+        return dict(results)
 
     async def process_document_ingestion(self, doc_id: str, text: str) -> bool:
         """

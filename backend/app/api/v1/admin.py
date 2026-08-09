@@ -20,27 +20,26 @@ def mock_ingestion_worker(doc_id: str, text: str):
 # How it will evolve: Later we will connect this to a real Text Splitter,
 # an embedding service, MongoDB models, and Qdrant clients.
 
-# @router.post("/ingest")
-# async def ingest_document(payload: dict, background_tasks: BackgroundTasks):
-#     """
-#     Endpoint to upload and ingest a new judgment.
-#     Immediately returns a status code 202 (Accepted) and processes in background.
-#     """
-#     title = payload.get("title")
-#     text = payload.get("text")
-#     citation = payload.get("citation")
+@router.post("/ingest")
+async def ingest_document(payload: dict, background_tasks: BackgroundTasks):
+    """
+    Endpoint to upload and ingest a new judgment.
+    Immediately returns a status code 202 (Accepted) and processes in background.
+    """
+    title = payload.get("title")
+    text = payload.get("text")
+    citation = payload.get("citation")
+    
+    if not title or not text or not citation:
+        raise HTTPException(status_code=400, detail="Title, text, and citation are required.")
+        
+    # Mock MongoDB insert
+    mock_mongo_id = "mongo_id_98765"
 #     
-#     if not title or not text or not citation:
-#         raise HTTPException(status_code=400, detail="Title, text, and citation are required.")
-#         
-#     # Mock MongoDB insert
-#     mock_mongo_id = "mongo_id_98765"
-#     
-#     # 🟢 Hand-type this background tasks enqueue
-#     background_tasks.add_task(mock_ingestion_worker, mock_mongo_id, text)
-#     
-#     return {
-#         "message": "Ingestion task initiated successfully.",
-#         "mongo_id": mock_mongo_id,
-#         "status": "processing"
-#     }
+    # 🟢 Hand-type this background tasks enqueue
+    background_tasks.add_task(mock_ingestion_worker, mock_mongo_id, text)
+    return {
+        "message": "Ingestion task initiated successfully.",
+        "mongo_id": mock_mongo_id,
+        "status": "processing"
+    }

@@ -13,22 +13,20 @@ router = APIRouter()
 # How it will evolve: Later we will connect this to Pydantic schemas and 
 # an LLM service that consumes case timelines to draft distinct sections.
 
+from app.services.ai_service import ai_service
+
 @router.post("/draft")
 async def generate_draft(case_data: dict):
     """
     Endpoint to initiate document drafting.
-    Receives case details and drafts specific petition sections.
+    Receives case details and compiles Supreme Court petition sections via LLM.
     """
-    if "facts" not in case_data:
+    if "facts" not in case_data or not str(case_data.get("facts", "")).strip():
         raise HTTPException(status_code=400, detail="Case facts are required for drafting")
         
+    drafts = await ai_service.generate_supreme_court_draft(case_data)
+    
     return {
         "status": "success",
-        "drafts": {
-            "synopsis": "Based on facts: Synopsis draft...",
-            "list_of_dates": "1. 01/01/2026: Incident occurred...",
-            "questions_of_law": "Whether the court erred in ignoring statutory bail rights...",
-            "grounds": "Ground A: The lower court misapplied Section 439 CrPC...",
-            "prayer": "Therefore, the petitioner prays that bail be granted..."
-        }
+        "drafts": drafts
     }
