@@ -19,6 +19,10 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(project_root, "backend"))
 sys.path.insert(0, project_root)
 
+# Explicitly load .env from backend directory before settings import
+from dotenv import load_dotenv
+load_dotenv(os.path.join(project_root, "backend", ".env"))
+
 from scripts.ingest_datasets import get_curated_seed_cases
 
 try:
@@ -73,8 +77,11 @@ def is_criminal_case(text: str, sections: List[str]) -> bool:
 def load_all_datasets(max_cases: int = 5000) -> List[Dict[str, Any]]:
     """Loads and filters Indian criminal cases from HuggingFace datasets."""
     import socket
-    socket.setdefaulttimeout(3.0)
+    socket.setdefaulttimeout(15.0)
     documents = []
+
+    from app.core.config import settings
+    hf_token = settings.HF_TOKEN or os.getenv("HF_TOKEN")
 
     try:
         from datasets import load_dataset
@@ -87,22 +94,29 @@ def load_all_datasets(max_cases: int = 5000) -> List[Dict[str, Any]]:
         # 1. IndianBailJudgments-1200
         try:
             logger.info("📥 Downloading 'SnehaDeshmukh/IndianBailJudgments-1200'...")
-            bail_ds = load_dataset("SnehaDeshmukh/IndianBailJudgments-1200", split="train", streaming=True)
+            bail_ds = load_dataset(
+                "SnehaDeshmukh/IndianBailJudgments-1200", 
+                split="train", 
+                streaming=True,
+                token=hf_token
+            )
             for row in bail_ds:
-                case_text = row.get("Judgment Text", row.get("text", row.get("judgment", "")))
-                if not case_text or len(str(case_text).strip()) < 100:
+                facts = row.get("facts", "") or ""
+                reasoning = row.get("judgment_reason", "") or ""
+                case_text = f"{facts}\n\nLegal Reasoning:\n{reasoning}" if reasoning else facts
+                if not case_text.strip() or len(case_text.strip()) < 50:
                     continue
 
-                sections = [s.strip() for s in str(row.get("IPC Sections", "")).split(",") if s.strip()]
+                sections = [s.strip() for s in str(row.get("ipc_sections", "")).split(",") if s.strip()]
                 documents.append({
                     "id": str(uuid.uuid4().hex),
-                    "title": str(row.get("Case Title", "Bail Application Judgment")).strip(),
-                    "citation": str(row.get("Citation", row.get("Case Number", f"2024 INSC {len(documents)+1}"))).strip(),
-                    "court": str(row.get("Court", "High Court")).strip(),
+                    "title": str(row.get("case_title", "Bail Application Judgment")).strip(),
+                    "citation": str(row.get("case_id", f"2024 INSC {len(documents)+1}")).strip(),
+                    "court": str(row.get("court", "High Court")).strip(),
                     "sections": sections,
-                    "outcome": str(row.get("Bail Outcome", "Granted")).strip(),
+                    "outcome": str(row.get("bail_outcome", "Granted")).strip(),
                     "year": row.get("Year", 2024),
-                    "full_text": str(case_text).strip(),
+                    "full_text": case_text.strip(),
                     "law_type": "criminal",
                     "dataset_source": "IndianBailJudgments-1200"
                 })
@@ -112,30 +126,37 @@ def load_all_datasets(max_cases: int = 5000) -> List[Dict[str, Any]]:
         except Exception as e:
             logger.warning(f"Could not load IndianBailJudgments dataset: {e}")
 
-        # 2. IL-TUR Prior Case Retrieval (PCR) Subset
+        # 2. IL-TUR Prior Case Retrieval (PCR) Subset (Ingesting ALL specialties)
         if len(documents) < max_cases:
             try:
                 logger.info("📥 Downloading 'Exploration-Lab/IL-TUR' (Prior Case Retrieval)...")
-                iltur_ds = load_dataset("Exploration-Lab/IL-TUR", "PCR", split="train", streaming=True)
+                iltur_ds = load_dataset(
+                    "Exploration-Lab/IL-TUR", 
+                    "pcr", 
+                    split="train_candidates", 
+                    streaming=True,
+                    token=hf_token
+                )
                 count = 0
                 for row in iltur_ds:
                     case_text = row.get("text", row.get("judgment", ""))
                     if not case_text or len(str(case_text).strip()) < 100:
                         continue
 
-                    if not is_criminal_case(str(case_text), []):
-                        continue
+                    # Classify specialty but ingest everything!
+                    is_crim = is_criminal_case(str(case_text), [])
+                    law_type = "criminal" if is_crim else "general"
 
                     documents.append({
                         "id": str(uuid.uuid4().hex),
-                        "title": str(row.get("title", f"Criminal Appeal {count+1}")).strip(),
+                        "title": str(row.get("title", f"Appeal case {count+1}")).strip(),
                         "citation": str(row.get("citation", f"2023 INSC PCR-{count+1}")).strip(),
                         "court": "Supreme Court of India",
-                        "sections": ["Indian Penal Code", "CrPC"],
+                        "sections": ["Indian Penal Code", "CrPC"] if is_crim else ["Civil Procedure Code"],
                         "outcome": "Decided",
                         "year": 2023,
                         "full_text": str(case_text).strip(),
-                        "law_type": "criminal",
+                        "law_type": law_type,
                         "dataset_source": "IL-TUR-PCR"
                     })
                     count += 1

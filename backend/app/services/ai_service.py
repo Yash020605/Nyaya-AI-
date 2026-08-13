@@ -31,11 +31,19 @@ class AIService:
             query_vector = legal_embedder.embed_text(query)
 
             # 2. Search Qdrant vector space
-            search_results = qdrant.search(
-                collection_name=COLLECTION_NAME,
-                query_vector=query_vector,
-                limit=limit
-            )
+            if hasattr(qdrant, "search"):
+                search_results = qdrant.search(
+                    collection_name=COLLECTION_NAME,
+                    query_vector=query_vector,
+                    limit=limit
+                )
+            else:
+                response = qdrant.query_points(
+                    collection_name=COLLECTION_NAME,
+                    query=query_vector,
+                    limit=limit
+                )
+                search_results = response.points
 
             if not search_results:
                 return self._mock_fallback_search(query)

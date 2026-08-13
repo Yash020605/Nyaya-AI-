@@ -37,5 +37,8 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
 
+    # Hugging Face Access Token
+    HF_TOKEN: str = ""
+
 # Global settings instance
 settings = Settings()
