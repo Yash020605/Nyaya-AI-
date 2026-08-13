@@ -121,3 +121,6 @@ venv.bak/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Project database persistence
+datasets/qdrant_local_db/

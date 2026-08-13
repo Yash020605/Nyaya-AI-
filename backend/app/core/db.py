@@ -50,13 +50,16 @@ class DatabaseManager:
             logger.info(f"Connected to Qdrant at {settings.QDRANT_HOST}:{settings.QDRANT_PORT}.")
             self._ensure_qdrant_collection()
         except Exception as e:
-            logger.warning(f"Local Qdrant not reachable ({e}). Initializing in-memory Qdrant instance for development...")
+            logger.warning(f"Local Qdrant server not reachable ({e}). Initializing persistent local disk database...")
             try:
-                self._qdrant_client = QdrantClient(":memory:")
+                import os
+                project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+                local_db_path = os.path.join(project_root, "datasets", "qdrant_local_db")
+                self._qdrant_client = QdrantClient(path=local_db_path)
                 self._ensure_qdrant_collection()
-                logger.info("In-memory Qdrant initialized successfully.")
+                logger.info(f"Persistent Qdrant database initialized at: {local_db_path}")
             except Exception as ie:
-                logger.error(f"Failed to initialize in-memory Qdrant: {ie}")
+                logger.error(f"Failed to initialize persistent local Qdrant: {ie}")
                 self._qdrant_client = None
 
     def _ensure_qdrant_collection(self):

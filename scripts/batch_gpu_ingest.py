@@ -14,12 +14,23 @@ import re
 import logging
 from typing import List, Dict, Any
 
-# Add backend directory to sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend")))
+# Add backend and root directories to sys.path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(project_root, "backend"))
+sys.path.insert(0, project_root)
 
-import torch
+from scripts.ingest_datasets import get_curated_seed_cases
+
+try:
+    import torch
+    HAS_TORCH = True
+except (ImportError, OSError) as e:
+    HAS_TORCH = False
+    print(f"[WDAC NOTICE] PyTorch blocked by Windows Application Control: {e}. Falling back to CPU mock embedder.")
+
 from app.core.db import db_manager, COLLECTION_NAME, VECTOR_DIMENSION
 from app.rag.chunker import legal_chunker
+from app.rag.embedder import legal_embedder
 from qdrant_client.http import models as qmodels
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - [%(levelname)s] - %(message)s")
@@ -32,17 +43,26 @@ CRIMINAL_REGEX = re.compile(
 )
 
 def get_gpu_embedder():
-    """Initializes SentenceTransformer on GPU if available."""
-    from sentence_transformers import SentenceTransformer
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    logger.info(f"⚡ Initializing Embedding Engine on device: {device.upper()}")
-    if device == "cuda":
-        gpu_name = torch.cuda.get_device_name(0)
-        logger.info(f"🚀 Detected GPU: {gpu_name} (CUDA Enabled)")
-    else:
-        logger.warning("⚠️ No CUDA GPU detected. Running on CPU.")
+    """Initializes SentenceTransformer on GPU if available, or falls back to mock."""
+    if not HAS_TORCH:
+        logger.warning("Running in local mock embedding mode due to OS restrictions.")
+        return "mock", "cpu"
+        
+    try:
+        from sentence_transformers import SentenceTransformer
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info(f"⚡ Initializing Embedding Engine on device: {device.upper()}")
+        if device == "cuda":
+            gpu_name = torch.cuda.get_device_name(0)
+            logger.info(f"🚀 Detected GPU: {gpu_name} (CUDA Enabled)")
+        else:
+            logger.warning("⚠️ No CUDA GPU detected. Running on CPU.")
 
-    model = SentenceTransformer("BAAI/bge-small-en-v1.5", device=device)
+        model = SentenceTransformer("BAAI/bge-small-en-v1.5", device=device)
+        return model, device
+    except Exception as e:
+        logger.warning(f"Could not load SentenceTransformer ({e}). Using mock embedder.")
+        return "mock", "cpu"
     return model, device
 
 def is_criminal_case(text: str, sections: List[str]) -> bool:
@@ -52,69 +72,83 @@ def is_criminal_case(text: str, sections: List[str]) -> bool:
 
 def load_all_datasets(max_cases: int = 5000) -> List[Dict[str, Any]]:
     """Loads and filters Indian criminal cases from HuggingFace datasets."""
-    from datasets import load_dataset
+    import socket
+    socket.setdefaulttimeout(3.0)
     documents = []
 
-    # 1. IndianBailJudgments-1200
     try:
-        logger.info("📥 Downloading 'SnehaDeshmukh/IndianBailJudgments-1200'...")
-        bail_ds = load_dataset("SnehaDeshmukh/IndianBailJudgments-1200", split="train")
-        for row in bail_ds:
-            case_text = row.get("Judgment Text", row.get("text", row.get("judgment", "")))
-            if not case_text or len(str(case_text).strip()) < 100:
-                continue
+        from datasets import load_dataset
+        HAS_DATASETS = True
+    except (ImportError, OSError) as e:
+        HAS_DATASETS = False
+        logger.warning(f"HuggingFace datasets library could not be loaded: {e}. Falling back to curated offline landmark corpus.")
 
-            sections = [s.strip() for s in str(row.get("IPC Sections", "")).split(",") if s.strip()]
-            documents.append({
-                "id": str(uuid.uuid4().hex),
-                "title": str(row.get("Case Title", "Bail Application Judgment")).strip(),
-                "citation": str(row.get("Citation", row.get("Case Number", f"2024 INSC {len(documents)+1}"))).strip(),
-                "court": str(row.get("Court", "High Court")).strip(),
-                "sections": sections,
-                "outcome": str(row.get("Bail Outcome", "Granted")).strip(),
-                "year": row.get("Year", 2024),
-                "full_text": str(case_text).strip(),
-                "law_type": "criminal",
-                "dataset_source": "IndianBailJudgments-1200"
-            })
-            if len(documents) >= max_cases:
-                break
-        logger.info(f"✅ Loaded {len(documents)} criminal cases from IndianBailJudgments.")
-    except Exception as e:
-        logger.warning(f"Could not load IndianBailJudgments dataset: {e}")
-
-    # 2. IL-TUR Prior Case Retrieval (PCR) Subset
-    if len(documents) < max_cases:
+    if HAS_DATASETS:
+        # 1. IndianBailJudgments-1200
         try:
-            logger.info("📥 Downloading 'Exploration-Lab/IL-TUR' (Prior Case Retrieval)...")
-            iltur_ds = load_dataset("Exploration-Lab/IL-TUR", "PCR", split="train", streaming=True)
-            count = 0
-            for row in iltur_ds:
-                case_text = row.get("text", row.get("judgment", ""))
+            logger.info("📥 Downloading 'SnehaDeshmukh/IndianBailJudgments-1200'...")
+            bail_ds = load_dataset("SnehaDeshmukh/IndianBailJudgments-1200", split="train", streaming=True)
+            for row in bail_ds:
+                case_text = row.get("Judgment Text", row.get("text", row.get("judgment", "")))
                 if not case_text or len(str(case_text).strip()) < 100:
                     continue
 
-                if not is_criminal_case(str(case_text), []):
-                    continue
-
+                sections = [s.strip() for s in str(row.get("IPC Sections", "")).split(",") if s.strip()]
                 documents.append({
                     "id": str(uuid.uuid4().hex),
-                    "title": str(row.get("title", f"Criminal Appeal {count+1}")).strip(),
-                    "citation": str(row.get("citation", f"2023 INSC PCR-{count+1}")).strip(),
-                    "court": "Supreme Court of India",
-                    "sections": ["Indian Penal Code", "CrPC"],
-                    "outcome": "Decided",
-                    "year": 2023,
+                    "title": str(row.get("Case Title", "Bail Application Judgment")).strip(),
+                    "citation": str(row.get("Citation", row.get("Case Number", f"2024 INSC {len(documents)+1}"))).strip(),
+                    "court": str(row.get("Court", "High Court")).strip(),
+                    "sections": sections,
+                    "outcome": str(row.get("Bail Outcome", "Granted")).strip(),
+                    "year": row.get("Year", 2024),
                     "full_text": str(case_text).strip(),
                     "law_type": "criminal",
-                    "dataset_source": "IL-TUR-PCR"
+                    "dataset_source": "IndianBailJudgments-1200"
                 })
-                count += 1
                 if len(documents) >= max_cases:
                     break
-            logger.info(f"✅ Total criminal cases aggregated: {len(documents)}")
+            logger.info(f"✅ Loaded {len(documents)} criminal cases from IndianBailJudgments.")
         except Exception as e:
-            logger.warning(f"Could not stream IL-TUR: {e}")
+            logger.warning(f"Could not load IndianBailJudgments dataset: {e}")
+
+        # 2. IL-TUR Prior Case Retrieval (PCR) Subset
+        if len(documents) < max_cases:
+            try:
+                logger.info("📥 Downloading 'Exploration-Lab/IL-TUR' (Prior Case Retrieval)...")
+                iltur_ds = load_dataset("Exploration-Lab/IL-TUR", "PCR", split="train", streaming=True)
+                count = 0
+                for row in iltur_ds:
+                    case_text = row.get("text", row.get("judgment", ""))
+                    if not case_text or len(str(case_text).strip()) < 100:
+                        continue
+
+                    if not is_criminal_case(str(case_text), []):
+                        continue
+
+                    documents.append({
+                        "id": str(uuid.uuid4().hex),
+                        "title": str(row.get("title", f"Criminal Appeal {count+1}")).strip(),
+                        "citation": str(row.get("citation", f"2023 INSC PCR-{count+1}")).strip(),
+                        "court": "Supreme Court of India",
+                        "sections": ["Indian Penal Code", "CrPC"],
+                        "outcome": "Decided",
+                        "year": 2023,
+                        "full_text": str(case_text).strip(),
+                        "law_type": "criminal",
+                        "dataset_source": "IL-TUR-PCR"
+                    })
+                    count += 1
+                    if len(documents) >= max_cases:
+                        break
+                logger.info(f"✅ Total criminal cases aggregated: {len(documents)}")
+            except Exception as e:
+                logger.warning(f"Could not stream IL-TUR: {e}")
+
+    # Fallback to curated seed cases if all else fails or datasets is offline
+    if not documents:
+        logger.info("Loading offline seed cases database...")
+        documents.extend(get_curated_seed_cases())
 
     return documents
 
@@ -158,13 +192,16 @@ def run_gpu_ingestion_pipeline(max_cases: int = 5000):
     texts = [c["text"] for c in all_chunks]
     
     embed_start = time.time()
-    vectors = model.encode(
-        texts,
-        batch_size=batch_size,
-        show_progress_bar=True,
-        normalize_embeddings=True,
-        convert_to_numpy=True
-    )
+    if model == "mock":
+        vectors = legal_embedder.embed_batch(texts)
+    else:
+        vectors = model.encode(
+            texts,
+            batch_size=batch_size,
+            show_progress_bar=True,
+            normalize_embeddings=True,
+            convert_to_numpy=True
+        ).tolist()
     embed_duration = round(time.time() - embed_start, 2)
     logger.info(f"✨ Embedded {len(all_chunks)} chunks in {embed_duration} seconds! ({round(len(all_chunks)/max(embed_duration, 0.1), 1)} chunks/sec)")
 
@@ -176,7 +213,7 @@ def run_gpu_ingestion_pipeline(max_cases: int = 5000):
         for idx, (chunk, vector) in enumerate(zip(all_chunks, vectors)):
             points.append(qmodels.PointStruct(
                 id=idx + 1,
-                vector=vector.tolist(),
+                vector=vector,
                 payload=chunk
             ))
 
