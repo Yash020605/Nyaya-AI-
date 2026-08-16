@@ -67,8 +67,9 @@ class AIService:
 
     async def get_document_by_id(self, doc_id: str) -> Dict[str, Any]:
         """
-        Retrieves the complete document text from MongoDB for deep-linking.
+        Retrieves the complete document text from MongoDB (or local JSONL file fallback) for deep-linking.
         """
+        # 1. Try fetching from MongoDB if active
         mongo_db = db_manager.mongo_db
         if mongo_db is not None:
             try:
@@ -85,12 +86,35 @@ class AIService:
             except Exception as e:
                 print(f"[MONGO FETCH ERROR] {e}")
 
+        # 2. Offline Fallback: Scan the local JSONL dataset file directly
+        try:
+            import os
+            import json
+            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+            jsonl_path = os.path.join(project_root, "datasets", "processed", "nyaya_criminal_cases.jsonl")
+            if os.path.exists(jsonl_path):
+                with open(jsonl_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip():
+                            doc = json.loads(line)
+                            if str(doc.get("id")) == str(doc_id) or str(doc.get("citation")) == str(doc_id):
+                                return {
+                                    "id": doc.get("id"),
+                                    "title": doc.get("title", "Case Document"),
+                                    "citation": doc.get("citation", "Official Citation"),
+                                    "court": doc.get("court", "Indian Court"),
+                                    "full_text": doc.get("full_text", "")
+                                }
+        except Exception as e:
+            print(f"[JSONL FALLBACK ERROR] {e}")
+
+        # 3. Double Fallback (Precedent Mock)
         return {
             "id": doc_id,
             "title": "State of Maharashtra v. XYZ",
             "citation": "2024 INSC 999",
             "court": "Supreme Court of India",
-            "full_text": "IN THE SUPREME COURT OF INDIA\nCRIMINAL APPELLATE JURISDICTION\n\nFull text of the judgment retrieved from system database."
+            "full_text": "IN THE SUPREME COURT OF INDIA\nCRIMINAL APPELLATE JURISDICTION\n\nFull text of the judgment retrieved from system database fallback."
         }
 
     def _mock_fallback_search(self, query: str) -> List[Dict[str, Any]]:
