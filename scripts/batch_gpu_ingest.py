@@ -91,80 +91,95 @@ def load_all_datasets(max_cases: int = 5000) -> List[Dict[str, Any]]:
         logger.warning(f"HuggingFace datasets library could not be loaded: {e}. Falling back to curated offline landmark corpus.")
 
     if HAS_DATASETS:
-        # 1. IndianBailJudgments-1200
+        # 1. IL-TUR Prior Case Retrieval (PCR) Subset (Ingesting ALL specialties - Full Text)
         try:
-            logger.info("📥 Downloading 'SnehaDeshmukh/IndianBailJudgments-1200'...")
-            bail_ds = load_dataset(
-                "SnehaDeshmukh/IndianBailJudgments-1200", 
-                split="train", 
+            logger.info("📥 Downloading 'Exploration-Lab/IL-TUR' (Prior Case Retrieval)...")
+            iltur_ds = load_dataset(
+                "Exploration-Lab/IL-TUR", 
+                "pcr", 
+                split="train_candidates", 
                 streaming=True,
                 token=hf_token
             )
-            for row in bail_ds:
-                facts = row.get("facts", "") or ""
-                reasoning = row.get("judgment_reason", "") or ""
-                case_text = f"{facts}\n\nLegal Reasoning:\n{reasoning}" if reasoning else facts
-                if not case_text.strip() or len(case_text.strip()) < 50:
+            count = 0
+            # Target half of max_cases for full-text SC judgments
+            target_iltur = max(1, max_cases // 2)
+            for row in iltur_ds:
+                case_text = row.get("text", "")
+                if isinstance(case_text, list):
+                    case_text = "\n\n".join(case_text)
+                
+                if not case_text or len(str(case_text).strip()) < 100:
                     continue
 
-                sections = [s.strip() for s in str(row.get("ipc_sections", "")).split(",") if s.strip()]
+                # Classify specialty but ingest everything!
+                is_crim = is_criminal_case(str(case_text), [])
+                law_type = "criminal" if is_crim else "general"
+
+                # Parse title from first few lines of judgment
+                lines = [line.strip() for line in str(case_text).split("\n") if line.strip()]
+                title = f"Supreme Court Case {row.get('id', count+1)}"
+                for line in lines[:8]:
+                    if len(line) < 150 and (" vs " in line.lower() or " v. " in line.lower() or " versus " in line.lower()):
+                        title = line.strip()
+                        break
+
                 documents.append({
                     "id": str(uuid.uuid4().hex),
-                    "title": str(row.get("case_title", "Bail Application Judgment")).strip(),
-                    "citation": str(row.get("case_id", f"2024 INSC {len(documents)+1}")).strip(),
-                    "court": str(row.get("court", "High Court")).strip(),
-                    "sections": sections,
-                    "outcome": str(row.get("bail_outcome", "Granted")).strip(),
-                    "year": row.get("Year", 2024),
-                    "full_text": case_text.strip(),
-                    "law_type": "criminal",
-                    "dataset_source": "IndianBailJudgments-1200"
+                    "title": title,
+                    "citation": f"2023 INSC PCR-{row.get('id', count+1)}",
+                    "court": "Supreme Court of India",
+                    "sections": ["Indian Penal Code", "CrPC"] if is_crim else ["Civil Procedure Code"],
+                    "outcome": "Decided",
+                    "year": 2023,
+                    "full_text": str(case_text).strip(),
+                    "law_type": law_type,
+                    "dataset_source": "IL-TUR-PCR"
                 })
-                if len(documents) >= max_cases:
+                count += 1
+                if len(documents) >= target_iltur:
                     break
-            logger.info(f"✅ Loaded {len(documents)} criminal cases from IndianBailJudgments.")
+            logger.info(f"✅ Loaded {len(documents)} full-text Supreme Court cases from IL-TUR.")
         except Exception as e:
-            logger.warning(f"Could not load IndianBailJudgments dataset: {e}")
+            logger.warning(f"Could not stream IL-TUR: {e}")
 
-        # 2. IL-TUR Prior Case Retrieval (PCR) Subset (Ingesting ALL specialties)
+        # 2. IndianBailJudgments-1200 (Fill remaining slots)
         if len(documents) < max_cases:
             try:
-                logger.info("📥 Downloading 'Exploration-Lab/IL-TUR' (Prior Case Retrieval)...")
-                iltur_ds = load_dataset(
-                    "Exploration-Lab/IL-TUR", 
-                    "pcr", 
-                    split="train_candidates", 
+                logger.info("📥 Downloading 'SnehaDeshmukh/IndianBailJudgments-1200'...")
+                bail_ds = load_dataset(
+                    "SnehaDeshmukh/IndianBailJudgments-1200", 
+                    split="train", 
                     streaming=True,
                     token=hf_token
                 )
                 count = 0
-                for row in iltur_ds:
-                    case_text = row.get("text", row.get("judgment", ""))
-                    if not case_text or len(str(case_text).strip()) < 100:
+                for row in bail_ds:
+                    facts = row.get("facts", "") or ""
+                    reasoning = row.get("judgment_reason", "") or ""
+                    case_text = f"{facts}\n\nLegal Reasoning:\n{reasoning}" if reasoning else facts
+                    if not case_text.strip() or len(case_text.strip()) < 50:
                         continue
 
-                    # Classify specialty but ingest everything!
-                    is_crim = is_criminal_case(str(case_text), [])
-                    law_type = "criminal" if is_crim else "general"
-
+                    sections = [s.strip() for s in str(row.get("ipc_sections", "")).split(",") if s.strip()]
                     documents.append({
                         "id": str(uuid.uuid4().hex),
-                        "title": str(row.get("title", f"Appeal case {count+1}")).strip(),
-                        "citation": str(row.get("citation", f"2023 INSC PCR-{count+1}")).strip(),
-                        "court": "Supreme Court of India",
-                        "sections": ["Indian Penal Code", "CrPC"] if is_crim else ["Civil Procedure Code"],
-                        "outcome": "Decided",
-                        "year": 2023,
-                        "full_text": str(case_text).strip(),
-                        "law_type": law_type,
-                        "dataset_source": "IL-TUR-PCR"
+                        "title": str(row.get("case_title", "Bail Application Judgment")).strip(),
+                        "citation": str(row.get("case_id", f"2024 INSC {len(documents)+1}")).strip(),
+                        "court": str(row.get("court", "High Court")).strip(),
+                        "sections": sections,
+                        "outcome": str(row.get("bail_outcome", "Granted")).strip(),
+                        "year": row.get("Year", 2024),
+                        "full_text": case_text.strip(),
+                        "law_type": "criminal",
+                        "dataset_source": "IndianBailJudgments-1200"
                     })
                     count += 1
                     if len(documents) >= max_cases:
                         break
-                logger.info(f"✅ Total criminal cases aggregated: {len(documents)}")
+                logger.info(f"✅ Aggregated {count} criminal cases from IndianBailJudgments. Total: {len(documents)}")
             except Exception as e:
-                logger.warning(f"Could not stream IL-TUR: {e}")
+                logger.warning(f"Could not load IndianBailJudgments dataset: {e}")
 
     # Fallback to curated seed cases if all else fails or datasets is offline
     if not documents:
