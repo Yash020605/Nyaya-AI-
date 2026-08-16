@@ -74,10 +74,10 @@ async function fetchFullDocument(mongoId) {
         if (!response.ok) throw new Error("Could not retrieve document.");
         
         const data = await response.json();
-        viewerBody.innerText = data.full_text;
+        viewerBody.innerHTML = formatLegalText(data.full_text);
         badge.innerText = data.citation;
     } catch (error) {
-        viewerBody.innerText = `Error: ${error.message}`;
+        viewerBody.innerHTML = `<p style="color:#ef4444;">Error: ${error.message}</p>`;
         badge.innerText = "Error";
     }
 }
@@ -208,4 +208,117 @@ function copyDraftToClipboard() {
     navigator.clipboard.writeText(display.innerText)
         .then(() => alert("Section copied to clipboard!"))
         .catch(err => console.error("Could not copy text: ", err));
+}
+
+// 5. Prettify Legal Text Formatter Helper
+function formatLegalText(text) {
+    if (!text) return "";
+    
+    // Clean and convert <NAME>, <ORG>, <CITATION> placeholders into styled badges
+    let formatted = text
+        .replace(/<NAME>/g, '<span class="legal-badge name">NAME</span>')
+        .replace(/<ORG>/g, '<span class="legal-badge org">ORG</span>')
+        .replace(/<CITATION>/g, '<span class="legal-badge citation">CITATION</span>');
+
+    // Parse specific headers from IL-TUR full text
+    const fields = [
+        { label: "Petitioner", key: "PETITIONER" },
+        { label: "Respondent", key: "RESPONDENT" },
+        { label: "Date of Judgment", key: "DATE OF JUDGMENT" },
+        { label: "Bench", key: "BENCH" },
+        { label: "Citation", key: "CITATION" }
+    ];
+
+    let extractedFields = [];
+    let textToProcess = formatted;
+
+    fields.forEach(field => {
+        const regex = new RegExp(`${field.key}:\\s*(.*?)(?=\\s*(?:RESPONDENT|DATE OF JUDGMENT|BENCH|CITATION|CITATOR INFO|ACT|HEADNOTE|$))`, "i");
+        const match = textToProcess.match(regex);
+        if (match) {
+            extractedFields.push({ label: field.label, value: match[1].trim() });
+            textToProcess = textToProcess.replace(match[0], "");
+        }
+    });
+
+    // Extract acts and headnotes
+    const largeFields = [
+        { label: "Acts & Statutory Sections", key: "ACT" },
+        { label: "Headnote Synopsis", key: "HEADNOTE" }
+    ];
+    let largeFieldsHtml = "";
+    largeFields.forEach(field => {
+        const regex = new RegExp(`${field.key}:\\s*(.*?)(?=\\s*(?:CITATOR INFO|ACT|HEADNOTE|JUDGMENT|$))`, "is");
+        const match = textToProcess.match(regex);
+        if (match) {
+            largeFieldsHtml += `
+                <div class="legal-large-field">
+                    <h5>${field.label}</h5>
+                    <p>${match[1].trim()}</p>
+                </div>
+            `;
+            textToProcess = textToProcess.replace(match[0], "");
+        }
+    });
+
+    // Clean remaining headers
+    textToProcess = textToProcess
+        .replace(/CITATOR INFO\s*:\s*.*?(?=\s*(?:ACT|HEADNOTE|JUDGMENT|$))/is, "")
+        .trim();
+
+    let metaSectionHtml = "";
+    if (extractedFields.length > 0) {
+        metaSectionHtml = `
+            <div class="legal-meta-card">
+                <h4>Case Details</h4>
+                <div class="legal-meta-grid">
+                    ${extractedFields.map(f => `
+                        <div class="meta-item">
+                            <span class="meta-label">${f.label}</span>
+                            <span class="meta-value">${f.value}</span>
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+        `;
+    }
+
+    // Split remaining body text into structured paragraphs
+    let paragraphs = textToProcess.split(/\n\n+/);
+    if (paragraphs.length === 1 && paragraphs[0].includes("Legal Reasoning:")) {
+        // Handle summary cases formatting
+        const parts = paragraphs[0].split("Legal Reasoning:");
+        paragraphs = [parts[0], "Legal Reasoning:\n" + (parts[1] || "")];
+    }
+
+    const bodyHtml = paragraphs.map(p => {
+        const cleaned = p.trim();
+        if (!cleaned) return "";
+        
+        if (cleaned.startsWith("Legal Reasoning:")) {
+            return `
+                <div class="legal-reasoning-card">
+                    <h5>⚖️ Court's Legal Reasoning</h5>
+                    <p>${cleaned.replace("Legal Reasoning:", "").trim()}</p>
+                </div>
+            `;
+        }
+        
+        if (cleaned.match(/^\d+\./) || (cleaned.length < 60 && cleaned.toUpperCase() === cleaned)) {
+            return `<h4 class="legal-section-title">${cleaned}</h4>`;
+        }
+        
+        return `<p class="legal-paragraph">${cleaned}</p>`;
+    }).join("");
+
+    return `
+        <div class="prettified-document">
+            ${metaSectionHtml}
+            ${largeFieldsHtml}
+            <div class="legal-body-section">
+                <h4>Case Judgment Text</h4>
+                ${bodyHtml || "<p class='empty-state'>Text parsed above.</p>"}
+            </div>
+        </div>
+    `;
 }
