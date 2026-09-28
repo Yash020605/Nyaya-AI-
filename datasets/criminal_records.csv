@@ -1,0 +1,8 @@
+id,name,crime_type,mo,traits,status
+CR001,Raju Bhai,Theft,Breaks locks using a crowbar,"Tall, scar on left cheek",Wanted
+CR002,Kalia,Extortion,Threatens victims over phone calls,"Heavy build, deep voice",Incarcerated
+CR003,Babu Rao,Fraud,Creates fake property documents,Wears thick glasses,Out on bail
+CR004,Munna,Assault,Uses a baseball bat in street fights,Tattoos on both arms,Wanted
+CR005,Circuit,Smuggling,Hides contraband in electronic goods,"Speaks fast, short height",Wanted
+CR006,Gogo,Robbery,Snatching gold chains on a bike,Wears a black cape,Wanted
+CR007,Teja,Murder,Poisoning victims,"Bald, mark on head",Incarcerated

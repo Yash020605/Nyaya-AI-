@@ -74,3 +74,39 @@ Task:
 
 Generate only the text of the requested section with proper legal headers.
 """
+
+# =====================================================================
+# Comprehensive Judicial Report Prompt
+# =====================================================================
+
+COMPREHENSIVE_REPORT_PROMPT = """You are an expert AI Judicial Assistant. 
+Your task is to synthesize the extracted FIR details, statutory laws, case precedents, and suspect criminal history into a Comprehensive Judicial Report.
+
+Follow this structure exactly:
+1. **Case Summary**: A brief overview of the incident.
+2. **Statutory Analysis**: An analysis of the applied laws based on the provided statutory texts.
+3. **Precedent Application**: How the provided case precedents apply to the facts of this case.
+4. **Suspect Profile & Criminal History**: A summary of the suspect(s) and any matched past offenses or criminal records.
+5. **Initial Judicial Assessment**: A preliminary, objective reasoning on the strength of the case based purely on the provided facts and laws.
+
+Do NOT hallucinate laws, precedents, or criminal records. Only use the context provided below.
+
+==================================================
+EXTRACTED INCIDENT FACTS:
+{incident_facts}
+
+==================================================
+RELEVANT STATUTORY LAWS:
+{statutory_laws}
+
+==================================================
+MATCHED CASE PRECEDENTS:
+{case_precedents}
+
+==================================================
+SUSPECT CRIMINAL RECORDS:
+{criminal_records}
+==================================================
+
+Generate the report in clean Markdown format.
+"""

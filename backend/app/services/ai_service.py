@@ -24,7 +24,7 @@ class AIService:
         """
         qdrant = db_manager.qdrant
         if not qdrant:
-            return self._mock_fallback_search(query)
+            return []
 
         try:
             # 1. Generate query vector using local sentence-transformers
@@ -46,7 +46,7 @@ class AIService:
                 search_results = response.points
 
             if not search_results:
-                return self._mock_fallback_search(query)
+                return []
 
             formatted_results = []
             for hit in search_results:
@@ -62,8 +62,8 @@ class AIService:
 
             return formatted_results
         except Exception as e:
-            print(f"[SEARCH ERROR] Qdrant query error: {e}. Returning fallback results.")
-            return self._mock_fallback_search(query)
+            print(f"[SEARCH ERROR] Qdrant query error: {e}.")
+            return []
 
     async def get_document_by_id(self, doc_id: str) -> Dict[str, Any]:
         """
@@ -108,34 +108,120 @@ class AIService:
         except Exception as e:
             print(f"[JSONL FALLBACK ERROR] {e}")
 
-        # 3. Double Fallback (Precedent Mock)
-        return {
-            "id": doc_id,
-            "title": "State of Maharashtra v. XYZ",
-            "citation": "2024 INSC 999",
-            "court": "Supreme Court of India",
-            "full_text": "IN THE SUPREME COURT OF INDIA\nCRIMINAL APPELLATE JURISDICTION\n\nFull text of the judgment retrieved from system database fallback."
-        }
+        # 3. If not found in DB or local JSONL, return empty dict
+        return {}
 
-    def _mock_fallback_search(self, query: str) -> List[Dict[str, Any]]:
-        return [
-            {
-                "title": "Satender Kumar Antil v. CBI",
-                "citation": "(2022) 10 SCC 51",
-                "relevance_score": 0.96,
-                "snippet": f"Under Article 21, bail is the rule and jail is the exception. Matches query: '{query}'.",
-                "mongo_id": "satender_antil_2022",
-                "page_number": 2
-            },
-            {
-                "title": "Arnesh Kumar v. State of Bihar",
-                "citation": "(2014) 8 SCC 273",
-                "relevance_score": 0.91,
-                "snippet": "Section 41 CrPC notice must precede arrest in offences punishable with less than 7 years.",
-                "mongo_id": "arnesh_kumar_2014",
-                "page_number": 1
-            }
-        ]
+    async def search_statutory_laws(self, laws: List[str], limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        Executes search on Qdrant 'laws' collection to retrieve statutory texts.
+        """
+        qdrant = db_manager.qdrant
+        if not qdrant or not laws:
+            return []
+
+        try:
+            # Combine laws into a single query string for semantic search
+            query = " ".join(laws)
+            query_vector = legal_embedder.embed_text(query)
+            
+            if hasattr(qdrant, "search"):
+                search_results = qdrant.search(
+                    collection_name="statutory_laws",
+                    query_vector=query_vector,
+                    limit=limit
+                )
+            else:
+                response = qdrant.query_points(
+                    collection_name="statutory_laws",
+                    query=query_vector,
+                    limit=limit
+                )
+                search_results = response.points
+
+            if not search_results:
+                return []
+
+            formatted_results = []
+            for hit in search_results:
+                payload = hit.payload or {}
+                formatted_results.append({
+                    "law_code": payload.get("law_code", ""),
+                    "section": payload.get("section", ""),
+                    "description": payload.get("description", ""),
+                    "relevance_score": round(float(hit.score), 3)
+                })
+
+            return formatted_results
+        except Exception as e:
+            print(f"[SEARCH ERROR] Statutory laws search error: {e}")
+            return []
+
+    async def search_criminal_records(self, suspect_details: List[dict], limit: int = 3) -> List[Dict[str, Any]]:
+        """
+        Retrieves matching criminal records using the Custom Trained ML Retriever 
+        (Predicts/Matches Criminal Profiles based on Offline ML Training).
+        """
+        if not suspect_details:
+            return []
+
+        import os
+        import joblib
+        
+        models_dir = os.path.join(os.path.dirname(__file__), "..", "models")
+        model_path = os.path.join(models_dir, "criminal_knn_model.pkl")
+        vectorizer_path = os.path.join(models_dir, "criminal_vectorizer.pkl")
+        data_path = os.path.join(models_dir, "criminal_data.pkl")
+        
+        all_matches = []
+        
+        # 1. Check if trained weights exist
+        if not (os.path.exists(model_path) and os.path.exists(vectorizer_path) and os.path.exists(data_path)):
+            print("[SEARCH WARNING] Custom ML Retriever weights not found. Run scripts/train_criminal_model.py first.")
+            return []
+            
+        try:
+            # 2. Load Trained Weights (For Faculty Requirement)
+            model = joblib.load(model_path)
+            vectorizer = joblib.load(vectorizer_path)
+            df = joblib.load(data_path)
+            
+            for suspect in suspect_details:
+                name = suspect.get("name", "")
+                desc = suspect.get("description", "")
+                query = f"{name} {desc}"
+                
+                # Transform query using the trained vectorizer
+                query_vec = vectorizer.transform([query])
+                
+                # Predict/Match criminal profile using KNN model
+                distances, indices = model.kneighbors(query_vec, n_neighbors=min(limit, len(df)))
+                
+                for dist, idx in zip(distances[0], indices[0]):
+                    record = df.iloc[idx]
+                    
+                    # Compute a relevance score (inverse of distance, roughly bounded 0-1)
+                    relevance = max(0.0, 1.0 - float(dist))
+                    
+                    if relevance > 0.05: # Only include if there's some similarity
+                        all_matches.append({
+                            "matched_name": str(record['name']),
+                            "relevance_score": round(relevance, 3),
+                            "mongo_record": {
+                                "name": str(record['name']),
+                                "crime_type": str(record['crime_type']),
+                                "mo": str(record['mo']),
+                                "traits": str(record['traits']),
+                                "status": str(record['status'])
+                            }
+                        })
+
+            # Sort all matches by relevance descending
+            all_matches.sort(key=lambda x: x["relevance_score"], reverse=True)
+            return all_matches[:limit]
+            
+        except Exception as e:
+            print(f"[SEARCH ERROR] Custom ML Retriever error: {e}")
+            return []
 
     async def generate_supreme_court_draft(self, case_data: dict) -> Dict[str, str]:
         """

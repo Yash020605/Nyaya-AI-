@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import research, drafting, admin
+from app.api.v1 import research, drafting, admin, report
 
 api_router = APIRouter()
 
@@ -33,3 +33,4 @@ async def health_check():
 api_router.include_router(research.router, prefix="/research", tags=["research"])
 api_router.include_router(drafting.router, prefix="/drafting", tags=["drafting"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+api_router.include_router(report.router, prefix="/report", tags=["report"])
