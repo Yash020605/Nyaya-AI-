@@ -1,0 +1,72 @@
+flowchart TD
+    %% =========================================================================
+    %% NYAYA AI — SIMPLIFIED PRODUCTION SYSTEM ARCHITECTURE
+    %% =========================================================================
+
+    %% Styling Classes
+    classDef actor fill:#0f172a,stroke:#f59e0b,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef client fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
+    classDef gateway fill:#1e293b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
+    classDef ingest fill:#1e1b4b,stroke:#a855f7,stroke-width:2px,color:#f8fafc;
+    classDef agent fill:#311042,stroke:#ec4899,stroke-width:2px,color:#f8fafc;
+    classDef engine fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#f8fafc;
+    classDef llm fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#f8fafc;
+    classDef audit fill:#7c2d12,stroke:#ef4444,stroke-width:2px,color:#f8fafc;
+    classDef output fill:#312e81,stroke:#818cf8,stroke-width:2px,color:#ffffff,font-weight:bold;
+
+    %% 1. Actors
+    subgraph S0["External Stakeholders"]
+        A1["👤 Advocates & Defense Counsel"]:::actor
+        A2["👮 Investigating Police Officers"]:::actor
+        A3["⚖️ Judges & Magistrates"]:::actor
+        A4["🛡️ System Administrators"]:::actor
+    end
+
+    %% 2. Presentation Layer (6 Active Workspaces)
+    UI["Glassmorphic Judicial Dashboard<br>(FIR Profiler • Legal Research • ML Suspect Matcher<br>SC Drafting • 11-State Regional Drafting • Ingestion Portal)"]:::client
+
+    %% 3. API Gateway (5 Consolidated Namespaces)
+    GW["FastAPI Asynchronous Gateway - /api/v1<br>(/report • /research • /ml-retriever • /drafting • /admin)"]:::gateway
+
+    %% 4. Multimodal Ingestion
+    INGEST["PyMuPDF In-Memory Ingestion & OCR<br>(Zero-Poppler Stream Decoder + Tesseract Discovery)"]:::ingest
+
+    %% 5. LangGraph Multi-Agent Orchestrator
+    subgraph ORCH["LangGraph Multi-Agent State Orchestrator - DAG"]
+        N1["Node 1: Extract FIR Entities & Codes"]:::agent
+        N2["Node 2: Parallel Multi-Source Retrieval"]:::agent
+        N3["Node 3: Grounded Judicial Synthesis"]:::agent
+        N4["Node 4: Citation Verification Audit"]:::agent
+    end
+
+    %% 6. Dual Retrieval & Offline ML Engines
+    subgraph ENGINES["Dual Retrieval & Offline ML Profiling Tier"]
+        STAT[("Collection A: Statutory Rules<br>(BNS/BNSS/Constitution + IPC Cross-Mapper)")]:::engine
+        QDRANT[("Collection B: Precedent Vector Space<br>(Qdrant 10k Cases + JSONL Fallback)")]:::engine
+        ML[("Subsystem C: Offline ML Profiler<br>(KNN MO Matcher + Random Forest Risk)")]:::engine
+    end
+
+    %% 7. Multi-Tier Resilient LLM Inference
+    LLM["Multi-Tier LLM Gateway<br>(Gemini 1.5 Flash ➔ Groq LLaMA-3.3-70B ➔ Heuristic Rules)"]:::llm
+
+    %% 8. Verification & Grounding Gateway
+    VERIFY["Deterministic Citation Verification Gate<br>(Grounding Score Cg = Intersection / Total * 100%)"]:::audit
+
+    %% 9. Court-Ready Deliverables
+    OUT["Court-Ready Petitions & Dossier<br>(Supreme Court Order XXI EN • 11 Regional Languages • SCC Deep Links)"]:::output
+
+    %% Wiring
+    A1 & A2 & A3 & A4 -->|"User Interactions & Uploads"| UI
+    UI -->|"REST / Multipart Payload"| GW
+    GW -->|"Decodes FIR Stream"| INGEST
+    INGEST --> N1
+    N1 --> N2
+
+    N2 --> STAT & QDRANT & ML
+    STAT & QDRANT & ML --> N3
+
+    N3 <-->|"Legal Reasoning"| LLM
+    N3 --> N4
+    N4 --> VERIFY
+    VERIFY --> OUT
+    OUT ==>|"Court Filings, Precedents & Risk Dossiers"| A1 & A2 & A3

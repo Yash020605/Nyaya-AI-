@@ -6,7 +6,10 @@ from typing import Dict, Any
 from app.services.fir_extractor import fir_extractor_service
 from app.services.ai_service import ai_service
 from app.services.llm_service import llm_service
+from app.services.citation_verifier import citation_verifier
 from app.prompts.legal_prompts import COMPREHENSIVE_REPORT_PROMPT
+
+from app.services.pipeline_orchestrator import pipeline_orchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +19,13 @@ class ReportService:
 
     async def generate_comprehensive_report(self, file_bytes: bytes, filename: str) -> Dict[str, Any]:
         """
-        Orchestrates the full pipeline:
-        1. OCR & Structured Entity Extraction
-        2. Machine Learning Retrieval Subsystem (Laws, Precedents, Criminal Records)
-        3. Generative LLM Report Synthesis
+        Orchestrates the full pipeline using LangGraph StateGraph:
+        Node 1: extract_fir
+        Node 2: parallel_retrieve (Statutes, 10,000 Cases, ML Suspect Profiler)
+        Node 3: synthesize_report
+        Node 4: citation_audit
         """
+        return await pipeline_orchestrator.run(file_bytes=file_bytes, filename=filename)
         # 1. Extract Entities
         logger.info(f"Extracting entities from {filename}...")
         extraction_result = fir_extractor_service.parse_fir(file_bytes, filename)
@@ -73,6 +78,13 @@ class ReportService:
             logger.error(f"Failed to generate report text: {e}")
             report_text = f"Error generating report: {str(e)}"
 
+        # 4. Citation & Grounding Verification Loop (Audit for hallucinations)
+        verification_audit = citation_verifier.verify_report_citations(
+            generated_text=report_text,
+            retrieved_statutes=laws_res,
+            retrieved_cases=precedents_res
+        )
+
         return {
             "status": "success",
             "extracted_entities": extracted_data,
@@ -81,6 +93,7 @@ class ReportService:
                 "case_precedents": precedents_res,
                 "criminal_records": records_res
             },
+            "citation_verification": verification_audit,
             "comprehensive_report": report_text
         }
 

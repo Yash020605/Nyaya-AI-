@@ -32,9 +32,10 @@ Rules for drafting:
 # section at a time (e.g. Synopsis vs Grounds vs Prayer) with high fidelity.
 # =====================================================================
 
-def get_sc_section_prompt(section: str, facts: str, offences: str = "") -> str:
+def get_sc_section_prompt(section: str, facts: str, offences: str = "", rag_context: str = "") -> str:
     """
-    Constructs a targeted prompt for compiling a specific section of a Special Leave Petition (SLP) / Criminal Appeal.
+    Constructs a targeted prompt for compiling a specific section of a Special Leave Petition (SLP) / Criminal Appeal,
+    incorporating retrieved RAG chunks (case precedents and statutes).
     """
     section_guidelines = {
         "synopsis": (
@@ -51,7 +52,8 @@ def get_sc_section_prompt(section: str, facts: str, offences: str = "") -> str:
         ),
         "grounds": (
             "Draft detailed, numbered GROUNDS for grant of Special Leave / Bail. "
-            "Each ground MUST begin with 'FOR THAT ...' and pinpoint legal errors, lack of evidence, or procedural lapses."
+            "Each ground MUST begin with 'FOR THAT ...' and pinpoint legal errors, lack of evidence, or procedural lapses. "
+            "Grounded explicitly in the retrieved statutory protections and landmark case precedents."
         ),
         "prayer": (
             "Draft the formal PRAYER clause. "
@@ -64,15 +66,17 @@ def get_sc_section_prompt(section: str, facts: str, offences: str = "") -> str:
         f"Draft the {section.upper()} section formally based on the provided facts."
     )
 
+    rag_block = f"\nAuthoritative RAG Case Precedents & Statutory Provisions:\n{rag_context}\n" if rag_context else ""
+
     return f"""Case Offences / Statutory Provisions: {offences or 'Indian Penal Code / CrPC'}
 
 Case Facts & Timeline:
 {facts}
-
+{rag_block}
 Task:
 {guideline}
 
-Generate only the text of the requested section with proper legal headers.
+Generate only the text of the requested section with proper legal headers. Ground your legal reasoning and grounds in the authoritative precedents provided above.
 """
 
 # =====================================================================

@@ -1,0 +1,24 @@
+flowchart LR
+    %% Styling Definitions
+    classDef entity fill:#0f172a,stroke:#f59e0b,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef system fill:#1e3a8a,stroke:#38bdf8,stroke-width:3px,color:#ffffff,font-weight:bold;
+
+    E1["👤 Practicing Advocate / Defense Counsel"]:::entity
+    E2["👮 Investigating Police Officer / IO"]:::entity
+    E3["⚖️ Judicial Magistrate / Judge"]:::entity
+    E4["🏛️ Official Legislative Gazettes & Supreme Court Records"]:::entity
+    E5["🛡️ Court Admin / Legal Scholar"]:::entity
+
+    SYS(("0<br><br>Nyaya AI<br>Judicial Intelligence<br>& Legal Drafting<br>Platform")):::system
+
+    %% External Inputs
+    E1 -->|"1. Uploads Scanned FIR [PDF / Image / Text]<br>2. Selects Court Forum [SC / State Court]<br>3. Selects Drafting Language [EN / 11 State Languages]"| SYS
+    E2 -->|"1. Submits FIR & Arrest Memo<br>2. Inputs Suspect Demographics & Crime MO<br>3. Queries Recidivism Flight Risk"| SYS
+    E4 -.->|"Official Gazettes [BNS, BNSS, BSA, Constitution]<br>& 10,000+ Landmark Judgments [SCC / AIR]"| SYS
+    E5 -->|"Triggers Batch Dataset Ingestion & Offline ML Retraining"| SYS
+
+    %% System Outputs
+    SYS ==>|"1. Supreme Court Order XXI SLP Draft<br>2. Regional Court Bail Petitions [11 Languages]<br>3. Landmark Precedents with Deep Links"| E1
+    SYS ==>|"1. Matched Suspect Syndicates via KNN<br>2. Recidivism & Flight Risk Score via Random Forest"| E2
+    SYS ==>|"1. Comprehensive Grounded Judicial Dossier<br>2. Citation Verification & Grounding Score Cg"| E3
+    SYS -.->|"System Health & Ingestion Pipeline Status"| E5

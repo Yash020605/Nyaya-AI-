@@ -124,3 +124,8 @@ Thumbs.db
 
 # Project database persistence
 datasets/qdrant_local_db/
+
+
+# Temporary and scratch files
+~$*
+scratch/

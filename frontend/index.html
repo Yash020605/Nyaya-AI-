@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NyayaAI - Judicial Intelligence Platform</title>
-    <!-- Google Fonts: Inter & Outfit -->
+    <!-- Google Fonts: Inter, Outfit, and Indian Regional Scripts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Gujarati:wght@400;600;700&family=Noto+Sans+Tamil:wght@400;600;700&family=Noto+Sans+Telugu:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Noto+Sans+Kannada:wght@400;600;700&family=Noto+Sans+Malayalam:wght@400;600;700&family=Noto+Sans+Gurmukhi:wght@400;600;700&family=Noto+Sans+Oriya:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -21,11 +21,20 @@
             </div>
             
             <nav class="nav-menu">
-                <button class="nav-btn active" data-tab="research-tab">
+                <button class="nav-btn active" data-tab="fir-tab">
+                    <span class="icon">📑</span> FIR Analysis & Profiler
+                </button>
+                <button class="nav-btn" data-tab="research-tab">
                     <span class="icon">🔍</span> Legal Research
+                </button>
+                <button class="nav-btn" data-tab="suspect-tab">
+                    <span class="icon">🎯</span> ML Suspect Matcher
                 </button>
                 <button class="nav-btn" data-tab="drafting-tab">
                     <span class="icon">✍️</span> Supreme Court Drafting
+                </button>
+                <button class="nav-btn" data-tab="marathi-drafting-tab">
+                    <span class="icon">📜</span> प्रादेशिक मसुदा (Regional)
                 </button>
                 <button class="nav-btn" data-tab="admin-tab">
                     <span class="icon">🛡️</span> Ingestion Portal
@@ -41,13 +50,131 @@
         <!-- Main Workspace -->
         <main class="workspace">
             
+            <!-- Modern Top Judicial Workspace Header -->
+            <header class="top-workspace-header">
+                <div class="header-left">
+                    <div class="header-breadcrumb">
+                        <span class="platform-name">⚖️ न्याय AI</span>
+                        <span class="sep">/</span>
+                        <span class="active-tab-title" id="active-tab-title">FIR Analysis &amp; Judicial Intelligence</span>
+                    </div>
+                    <span class="header-tagline">Autonomous Evidentiary &amp; Precedent Intelligence for Indian Courts</span>
+                </div>
+                
+                <div class="header-right">
+                    <!-- Top Active Case Indicator Banner -->
+                    <div id="top-active-case-pill" class="top-active-case-pill" style="display:none;">
+                        <span class="case-dot"></span>
+                        <div class="case-info-snippet">
+                            <span class="case-badge-label">ACTIVE CASE</span>
+                            <span class="case-number" id="top-case-number">FIR 184/2024</span>
+                            <span class="case-ps" id="top-case-ps">Pune Cyber Cell</span>
+                        </div>
+                        <button id="btn-top-inspect-case" class="btn-top-inspect" title="Click to view complete case details and extracted intelligence">
+                            <span>👁️ View Case Details</span>
+                        </button>
+                    </div>
+
+                    <div class="system-status-chip">
+                        <span class="status-pulse-dot"></span>
+                        <span>API Online (Port 8000)</span>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- FIR Analysis & Profiler Tab (Active) -->
+            <section id="fir-tab" class="tab-content active">
+                <div class="split-view">
+                    <!-- Left Panel: FIR Ingestion & Form -->
+                    <div class="draft-inputs">
+                        <h2>FIR & Incident Analysis</h2>
+                        <p class="section-desc">Upload FIR document (PDF, Image, Text) or paste raw incident narrative for LangGraph multi-agent analysis.</p>
+                        
+                        <!-- Drag and Drop Dropzone -->
+                        <div class="file-dropzone" id="fir-dropzone">
+                            <input type="file" id="fir-file-input" accept=".pdf,.png,.jpg,.jpeg,.txt" style="display:none;" />
+                            <div class="dropzone-content">
+                                <span class="dropzone-icon">📁</span>
+                                <p class="dropzone-title">Drag & drop FIR file here, or <span class="browse-link">browse</span></p>
+                                <span class="dropzone-hint">Supports PDF, PNG, JPG, or TXT</span>
+                            </div>
+                            <div class="file-selected-badge" id="file-selected-name" style="display:none;"></div>
+                        </div>
+
+                        <div class="or-separator"><span>OR PASTE INCIDENT TEXT</span></div>
+
+                        <div class="form-group">
+                            <label for="fir-text-input">FIR / Crime Incident Narrative</label>
+                            <textarea id="fir-text-input" rows="7" placeholder="Paste First Information Report (FIR) text, complainant statement, penal provisions (e.g. Sec 35 BNSS, 420 IPC), and suspect traits..."></textarea>
+                        </div>
+
+                        <div class="fir-actions">
+                            <button id="btn-analyze-fir" class="primary-btn">
+                                <span class="btn-spinner" id="fir-spinner" style="display:none;">⏳</span>
+                                <span>Execute LangGraph Judicial Pipeline</span>
+                            </button>
+                        </div>
+
+                        <!-- Progress / Execution Status Tracker -->
+                        <div class="pipeline-tracker" id="pipeline-tracker" style="display:none;">
+                            <h4>Agentic Workflow Execution</h4>
+                            <div class="tracker-steps">
+                                <div class="step-badge" id="step-extract"><span class="step-num">1</span> FIR Entity OCR</div>
+                                <div class="step-arrow">➔</div>
+                                <div class="step-badge" id="step-retrieve"><span class="step-num">2</span> Parallel Retrieval (Statutes + 10k Cases + ML)</div>
+                                <div class="step-arrow">➔</div>
+                                <div class="step-badge" id="step-synthesize"><span class="step-num">3</span> Judicial Synthesis</div>
+                                <div class="step-arrow">➔</div>
+                                <div class="step-badge" id="step-audit"><span class="step-num">4</span> Citation Verifier</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Panel: Comprehensive Judicial Dossier Output -->
+                    <div class="draft-outputs">
+                        <div class="viewer-header">
+                            <div class="viewer-title-group">
+                                <h3>Judicial Intelligence Dossier</h3>
+                                <span class="grounding-badge" id="grounding-score-badge" style="display:none;">Grounding: 100%</span>
+                            </div>
+                            <div class="header-actions">
+                                <button id="btn-back-to-hub" class="btn-hub-nav" style="display:none;" title="Return to Feature Hub Overview">🗂️ Feature Hub</button>
+                                <button id="btn-broadcast-rag" class="btn-broadcast-rag" style="display:none;" title="Distribute RAG chunks and extracted entities to all other tabs">⚡ Auto-Sync All Tabs</button>
+                                <button id="btn-copy-report" class="icon-btn" title="Copy Report">📋 Copy</button>
+                                <button id="btn-print-report" class="icon-btn" title="Print Dossier">🖨️ Print</button>
+                            </div>
+                        </div>
+
+                        <!-- Sub-tab switcher for Report Views -->
+                        <div class="draft-tabs" id="dossier-subtabs" style="display:none;">
+                            <button class="dossier-tab-btn active" data-view="hub">🗂️ Feature Hub</button>
+                            <button class="dossier-tab-btn" data-view="extracted_entities">📋 Case Facts &amp; Matrix</button>
+                            <button class="dossier-tab-btn" data-view="retrieved-statutes">⚖️ Applied Statutes</button>
+                            <button class="dossier-tab-btn" data-view="case-precedents">📚 10k Precedents</button>
+                            <button class="dossier-tab-btn" data-view="ml-suspects">🎯 ML Suspects</button>
+                            <button class="dossier-tab-btn" data-view="citation-audit">🛡️ Citation Audit</button>
+                            <button class="dossier-tab-btn" data-view="full-report">📜 Full Brief</button>
+                        </div>
+
+                        <div class="draft-body" id="dossier-display">
+                            <div class="empty-state">
+                                <span class="large-icon">📑</span>
+                                <p>Upload an FIR document or paste details to synthesize judicial intelligence.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Research Tab -->
-            <section id="research-tab" class="tab-content active">
+            <section id="research-tab" class="tab-content">
                 <div class="split-view">
                     <div class="search-panel">
                         <h2>Case Law Precedents Search</h2>
-                        <p class="section-desc">Search criminal cases across Qdrant vector database and fallback web networks.</p>
+                        <p class="section-desc">Search across 10,000 landmark Supreme Court and High Court precedents, Qdrant vector store, and statutory acts.</p>
                         
+                        <div id="research-rag-banner" style="display:none;"></div>
+
                         <div class="search-box">
                             <input type="text" id="search-query" placeholder="Describe criminal case facts, e.g., bail under Section 439 BNSS..." />
                             <button id="btn-search" class="primary-btn">Search</button>
@@ -76,6 +203,125 @@
                 </div>
             </section>
 
+            <!-- ML Suspect Matcher Tab (Offline ML Classification & KNN Retrieval) -->
+            <section id="suspect-tab" class="tab-content">
+                <div class="split-view">
+                    <div class="draft-inputs">
+                        <h2>Suspect Profiler & Risk Classifier</h2>
+                        <p class="section-desc">Infer recidivism risk (Random Forest) and retrieve similar criminal profiles (KNN) trained on 5,000 criminal records.</p>
+                        
+                        <div id="suspect-rag-banner" style="display:none;"></div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="ml-crime-type">Primary Crime Type / MO</label>
+                                <select id="ml-crime-type" class="form-select">
+                                    <option value="Theft / Burglary">Theft / Burglary</option>
+                                    <option value="Cyber Fraud">Cyber Fraud</option>
+                                    <option value="Assault / Grievous Hurt">Assault / Grievous Hurt</option>
+                                    <option value="Homicide / Attempt to Murder">Homicide / Attempt to Murder</option>
+                                    <option value="Robbery / Dacoity">Robbery / Dacoity</option>
+                                    <option value="Drug Trafficking (NDPS)">Drug Trafficking (NDPS)</option>
+                                    <option value="Financial / Economic Fraud">Financial / Economic Fraud</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="ml-weapon">Weapon Used</label>
+                                <select id="ml-weapon" class="form-select">
+                                    <option value="None">None</option>
+                                    <option value="Firearm">Firearm</option>
+                                    <option value="Knife / Sharp Object">Knife / Sharp Object</option>
+                                    <option value="Blunt Object">Blunt Object</option>
+                                    <option value="Explosive">Explosive</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="ml-state">Jurisdiction / State</label>
+                                <select id="ml-state" class="form-select">
+                                    <option value="Maharashtra">Maharashtra</option>
+                                    <option value="Delhi">Delhi</option>
+                                    <option value="Uttar Pradesh">Uttar Pradesh</option>
+                                    <option value="Karnataka">Karnataka</option>
+                                    <option value="West Bengal">West Bengal</option>
+                                    <option value="Gujarat">Gujarat</option>
+                                    <option value="Rajasthan">Rajasthan</option>
+                                    <option value="Tamil Nadu">Tamil Nadu</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="ml-gang">Gang Affiliation</label>
+                                <select id="ml-gang" class="form-select">
+                                    <option value="Independent">Independent</option>
+                                    <option value="Local Gang">Local Gang</option>
+                                    <option value="Organized Syndicate">Organized Syndicate</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="ml-age">Suspect Age</label>
+                                <input type="number" id="ml-age" min="18" max="90" value="29" />
+                            </div>
+                            <div class="form-group">
+                                <label for="ml-height">Height (cm)</label>
+                                <input type="number" id="ml-height" min="130" max="210" value="172" />
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="ml-build">Physical Build</label>
+                                <select id="ml-build" class="form-select">
+                                    <option value="Medium">Medium</option>
+                                    <option value="Slim">Slim</option>
+                                    <option value="Athletic">Athletic</option>
+                                    <option value="Heavy">Heavy</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="ml-complexion">Complexion</label>
+                                <select id="ml-complexion" class="form-select">
+                                    <option value="Wheatish">Wheatish</option>
+                                    <option value="Fair">Fair</option>
+                                    <option value="Dark">Dark</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="ml-convictions">Prior Convictions</label>
+                                <input type="number" id="ml-convictions" min="0" max="25" value="2" />
+                            </div>
+                            <div class="form-group">
+                                <label for="ml-warrants">Active Warrants</label>
+                                <input type="number" id="ml-warrants" min="0" max="10" value="1" />
+                            </div>
+                        </div>
+
+                        <button id="btn-ml-match" class="primary-btn">Execute ML Inference & KNN Search</button>
+                    </div>
+
+                    <div class="draft-outputs">
+                        <div class="viewer-header">
+                            <h3>ML Predictive Insights & Suspect Matches</h3>
+                            <span class="badge" id="ml-risk-badge">Awaiting Query</span>
+                        </div>
+
+                        <div class="ml-results-container" id="ml-results-container">
+                            <div class="empty-state">
+                                <span class="large-icon">🎯</span>
+                                <p>Select suspect traits and click 'Execute ML Inference' to predict risk classification and retrieve top matching criminal profiles.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Drafting Tab -->
             <section id="drafting-tab" class="tab-content">
                 <div class="split-view">
@@ -83,6 +329,8 @@
                         <h2>SC Petition Compiler</h2>
                         <p class="section-desc">Provide petition details to compile a Supreme Court formatted draft.</p>
                         
+                        <div id="drafting-rag-banner" style="display:none;"></div>
+
                         <div class="form-group">
                             <label for="draft-facts">Case Facts & Incident Timeline</label>
                             <textarea id="draft-facts" rows="8" placeholder="Summarize case facts, arrest date, lower court rejections..."></textarea>
@@ -112,6 +360,106 @@
                             <div class="empty-state">
                                 <span class="large-icon">✍️</span>
                                 <p>Provide case inputs and compile to generate Supreme Court petition sections.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+ 
+            <!-- Regional Multilingual State Courts Drafting Tab -->
+            <section id="marathi-drafting-tab" class="tab-content">
+                <div class="split-view">
+                    <div class="draft-inputs">
+                        <h2>🇮🇳 प्रादेशिक न्यायालयीन मसुदा (Multilingual State Courts Drafting)</h2>
+                        <p class="section-desc">भारतातील सर्व घटक राज्यांच्या कनिष्ठ व सत्र न्यायालयांसाठी अस्सल न्यायालयीन भाषेत मसुदा तयार करा (11 State Legal Languages).</p>
+                        
+                        <div id="marathi-rag-banner" style="display:none;"></div>
+
+                        <!-- Language & Jurisdiction Selector -->
+                        <div class="form-group regional-lang-container" style="background: rgba(217, 119, 6, 0.08); border: 1px solid rgba(217, 119, 6, 0.35); padding: 0.85rem 1rem; border-radius: 8px; margin-bottom: 1.25rem;">
+                            <label for="regional-language-select" style="color: #fbbf24; font-weight: 600; display:flex; align-items:center; gap:0.5rem; margin-bottom: 0.4rem;">
+                                <span>🏛️ राज्य अधिकारक्षेत्र व न्यायालयीन भाषा (Select State Jurisdiction & Language):</span>
+                            </label>
+                            <select id="regional-language-select" class="form-select" style="border-color: #f59e0b; font-weight: 600; background: rgba(15, 23, 42, 0.95); color: #fef08a;">
+                                <option value="marathi" selected>मराठी (Marathi - Maharashtra District & Sessions Courts)</option>
+                                <option value="hindi">हिन्दी (Hindi - Delhi, UP, MP, Bihar, Rajasthan, Haryana, etc.)</option>
+                                <option value="gujarati">ગુજરાતી (Gujarati - Gujarat District & Sessions Courts)</option>
+                                <option value="bengali">বাংলা (Bengali - West Bengal District & Sessions Courts)</option>
+                                <option value="tamil">தமிழ் (Tamil - Tamil Nadu Subordinate Courts)</option>
+                                <option value="telugu">తెలుగు (Telugu - Andhra Pradesh & Telangana Courts)</option>
+                                <option value="kannada">ಕನ್ನಡ (Kannada - Karnataka District Courts)</option>
+                                <option value="malayalam">മലയാളം (Malayalam - Kerala District Courts)</option>
+                                <option value="punjabi">ਪੰਜਾਬੀ (Punjabi - Punjab District Courts)</option>
+                                <option value="odia">ଓଡ଼ିଆ (Odia - Odisha District Courts)</option>
+                                <option value="assamese">অসমীয়া (Assamese - Assam District Courts)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="marathi-draft-type" id="lbl-draft-type">अर्जाचा प्रकार (Filing Type)</label>
+                            <select id="marathi-draft-type" class="form-select">
+                                <option value="bail_application">नियमित जामीन अर्ज (Regular Bail Application - CrPC 437/439 / BNSS 480/483)</option>
+                                <option value="anticipatory_bail">अटकपूर्व जामीन अर्ज (Anticipatory Bail - CrPC 438 / BNSS 482)</option>
+                                <option value="criminal_complaint">फौजदारी तक्रार अर्ज (Private Complaint - CrPC 156(3) / 200)</option>
+                                <option value="discharge_application">दोषमुक्ततेचा अर्ज (Discharge Application - CrPC 227/239 / BNSS 250)</option>
+                                <option value="affidavit">न्यायालयीन शपथपत्र / प्रतिज्ञापत्र (Affidavit & Verification)</option>
+                                <option value="exemption_application">हजेरीतून सूट मिळणेबाबत अर्ज (Exemption Application)</option>
+                                <option value="written_arguments">लेखी युक्तिवाद / कैफियत (Written Arguments & Submissions)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="marathi-court-name" id="lbl-court-name">न्यायालयाचे नाव (Court Name / District)</label>
+                                <input type="text" id="marathi-court-name" placeholder="उदा. मे. सत्र न्यायालय, पुणे / मुंबई" />
+                            </div>
+                            <div class="form-group">
+                                <label for="marathi-fir-number" id="lbl-fir-number">गुन्हा क्र. / FIR No. & Year</label>
+                                <input type="text" id="marathi-fir-number" placeholder="उदा. गु.र.नं. १२४/२०२४" />
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="marathi-applicant-name" id="lbl-applicant-name">अर्जदार / आरोपीचे नाव (Applicant / Accused)</label>
+                                <input type="text" id="marathi-applicant-name" placeholder="उदा. रमेश विलास शिंदे" />
+                            </div>
+                            <div class="form-group">
+                                <label for="marathi-police-station" id="lbl-police-station">पोलीस ठाणे (Police Station)</label>
+                                <input type="text" id="marathi-police-station" placeholder="उदा. शिवाजीनगर पोलीस स्टेशन" />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="marathi-sections" id="lbl-sections">लागू कलमे (IPC / BNS / CrPC / BNSS)</label>
+                            <input type="text" id="marathi-sections" placeholder="उदा. भा.दं.वि. कलम ३०७, ३२४, ५०४, ५०६ किंवा बी.एन.एस." />
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="marathi-facts" id="lbl-facts">केसची सविस्तर वस्तुस्थिती (Case Facts & Allegations)</label>
+                            <textarea id="marathi-facts" rows="6" placeholder="केसची खरी पार्श्वभूमी, एफआयआरमधील आरोप, आणि अर्जदाराची बाजू सविस्तर लिहा..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="marathi-grounds" id="lbl-grounds">अतिरिक्त कारणे / बचावाचे मुद्दे (Grounds for Relief)</label>
+                            <textarea id="marathi-grounds" rows="3" placeholder="उदा. खोटे आरोप, कोणताही पुरावा नाही, तपासात सहकार्य करण्याची तयारी..."></textarea>
+                        </div>
+                        
+                        <button id="btn-marathi-draft" class="primary-btn">न्यायालयीन मसुदा तयार करा (Generate Regional Draft)</button>
+                    </div>
+                    
+                    <div class="draft-outputs">
+                        <div class="viewer-header">
+                            <h3 id="regional-draft-preview-title">तयार झालेला अधिकृत मसुदा (Regional Pleading Preview)</h3>
+                            <div class="header-actions">
+                                <button id="btn-copy-marathi-draft" class="icon-btn" title="मसुदा कॉपी करा">📋 प्रत करा (Copy)</button>
+                                <button id="btn-print-marathi-draft" class="icon-btn" title="प्रिंट / PDF">🖨️ मुद्रण (Print)</button>
+                            </div>
+                        </div>
+                        <div class="draft-body marathi-court-paper" id="marathi-draft-display">
+                            <div class="empty-state">
+                                <span class="large-icon">📜</span>
+                                <p id="regional-empty-prompt">केसचा तपशील भरून 'न्यायालयीन मसुदा तयार करा' बटणावर क्लिक करा.</p>
                             </div>
                         </div>
                     </div>
@@ -157,6 +505,48 @@
             </section>
             
         </main>
+    </div>
+
+    <!-- Universal Slide-Over Case Details Drawer -->
+    <div id="case-details-drawer-overlay" class="drawer-overlay" style="display:none;">
+        <aside class="case-details-drawer" id="case-details-drawer">
+            <div class="drawer-header">
+                <div class="drawer-title-group">
+                    <span class="drawer-badge">⚖️ CASE INTELLIGENCE INSPECTOR</span>
+                    <h3 id="drawer-case-title">FIR Details</h3>
+                    <span class="drawer-subtitle" id="drawer-case-subtitle">Active Case Context</span>
+                </div>
+                <button id="btn-close-drawer" class="btn-drawer-close" title="Close Inspector">&times;</button>
+            </div>
+
+            <!-- Drawer Navigation Tabs -->
+            <div class="drawer-nav">
+                <button class="drawer-tab-btn active" data-drawer-tab="facts">📋 Facts &amp; Matrix</button>
+                <button class="drawer-tab-btn" data-drawer-tab="statutes">⚖️ Statutes</button>
+                <button class="drawer-tab-btn" data-drawer-tab="accused">👤 Accused</button>
+                <button class="drawer-tab-btn" data-drawer-tab="precedents">📚 Precedents</button>
+                <button class="drawer-tab-btn" data-drawer-tab="ml">🎯 ML Risk</button>
+                <button class="drawer-tab-btn" data-drawer-tab="audit">🛡️ Audit</button>
+                <button class="drawer-tab-btn" data-drawer-tab="full">📜 Full Dossier</button>
+            </div>
+
+            <div class="drawer-content" id="drawer-content">
+                <div class="empty-state">
+                    <p>No active case loaded. Please analyze an FIR first.</p>
+                </div>
+            </div>
+
+            <div class="drawer-footer">
+                <button id="btn-drawer-copy" class="secondary-btn">📋 Copy Section</button>
+                <button id="btn-drawer-close-bottom" class="primary-btn">Close Inspector</button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Toast Notification for RAG Automatic Dissemination -->
+    <div id="rag-sync-toast" class="sync-toast">
+        <span class="toast-icon">⚡</span>
+        <span id="toast-message">All features synced with RAG chunks from FIR OCR pipeline!</span>
     </div>
 
     <!-- Script loading -->

@@ -144,6 +144,50 @@ Receives case facts, timeline, and statutory provisions, then compiles structure
 
 ---
 
+### 3B. Marathi District & Sessions Court Drafting (मराठी न्यायालयीन मसुदा)
+Generates court-ready legal filings in formal, certified governmental Marathi for District & Sessions Courts and Magistrate Courts across Maharashtra.
+
+* **Method**: `POST`
+* **Path**: `/drafting/draft/marathi`
+* **Full URL**: `http://localhost:8000/api/v1/drafting/draft/marathi`
+* **Headers**: `Content-Type: application/json`
+
+#### Request Payload (`JSON`)
+```json
+{
+  "draft_type": "bail_application",
+  "court_name": "मे. सत्र न्यायालय, पुणे",
+  "applicant_name": "रमेश विलास शिंदे",
+  "opponent_name": "महाराष्ट्र शासन (मार्फत शिवाजीनगर पोलीस स्टेशन)",
+  "police_station": "शिवाजीनगर पोलीस स्टेशन",
+  "fir_number": "गु.र.नं. १२४/२०२४",
+  "sections": "भा.दं.वि. कलम ३०७, ३२४, ५०४, ५०६ / बी.एन.एस.",
+  "facts": "अर्जदारास राजकीय वैमनस्यातून खोट्या गुन्ह्यात गोवण्यात आले आहे. अर्जदार प्रतिष्ठित नागरिक असून तपासात पूर्ण सहकार्य करत आहे.",
+  "additional_grounds": "अर्जदारावर यापूर्वी कोणताही गुन्हा दाखल नाही. अर्जदार न्यायालयाच्या सर्व अटींचे पालन करण्यास तयार आहे."
+}
+```
+
+* **Supported `draft_type` options**:
+  - `bail_application` (नियमित जामीन अर्ज - Regular Bail)
+  - `anticipatory_bail` (अटकपूर्व जामीन अर्ज - Anticipatory Bail)
+  - `criminal_complaint` (फौजदारी तक्रार अर्ज - Private Complaint)
+  - `discharge_application` (दोषमुक्ततेचा अर्ज - Discharge)
+  - `affidavit` (शपथपत्र / प्रतिज्ञापत्र - Affidavit)
+  - `exemption_application` (हजेरीतून सूट मिळणेबाबत अर्ज - Exemption)
+  - `written_arguments` (लेखी युक्तिवाद / कैफियत - Written Arguments)
+
+#### Response (`200 OK`)
+```json
+{
+  "status": "success",
+  "draft_type": "bail_application",
+  "court_name": "मे. सत्र न्यायालय, पुणे",
+  "draft_text": "मेहरबान जिल्हा व सत्र न्यायालय, पुणे यांच्या न्यायालयात...\n\nफौजदारी जामीन अर्ज क्र. ...../२०२४\n\nअर्जदार/आरोपी: रमेश विलास शिंदे...\nविरुद्ध\nसामाईक/सरकार: महाराष्ट्र शासन...\n\nयास्तव नम्र प्रार्थना आहे की..."
+}
+```
+
+---
+
 ### 5. Admin Case Ingestion & Vector Indexing
 Allows administrators to upload new case judgments. The backend immediately accepts the job, stores raw data in MongoDB, and spawns an asynchronous background worker to chunk, embed, and upsert vectors to Qdrant.
 

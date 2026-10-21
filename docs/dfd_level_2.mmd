@@ -1,0 +1,85 @@
+flowchart TD
+    %% Styling Classes
+    classDef input fill:#0f172a,stroke:#d97706,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef subproc fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#ffffff;
+    classDef store fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#ffffff;
+    classDef audit fill:#7c2d12,stroke:#ef4444,stroke-width:2px,color:#ffffff;
+    classDef output fill:#312e81,stroke:#818cf8,stroke-width:2px,color:#ffffff,font-weight:bold;
+
+    %% Data Input Store
+    D1[("[(D1)] Raw File Buffer<br>Decoded FIR Text")]:::store
+
+    %% Sub-processes of 2.0: Entity Extraction & Code Mapping
+    subgraph P2_SUB["2.0 Entity Extraction & Statutory Mapping"]
+        P21["2.1 Regex Section Extractor<br>Scans IPC, CrPC, BNS, BNSS patterns"]:::subproc
+        P22["2.2 LLM Demographic & Fact Parser<br>Extracts accused name, age, MO, date, location"]:::subproc
+        P23["2.3 Bidirectional Code Mapper<br>Resolves IPC to BNS & CrPC to BNSS Equivalencies"]:::subproc
+    end
+
+    D2[("[(D2)] Extracted Entity Cache<br>• Normalized Penal Codes<br>• Incident Narrative<br>• Suspect Features & MO")]:::store
+
+    %% Sub-processes of 3.0: Dual Retrieval & ML Profiler
+    subgraph P3_SUB["3.0 Dual Retrieval & ML Profiler Subsystems"]
+        P31["3.1 Statutory Rules Query Engine<br>Extracts BNS/BNSS legislative clauses & safeguards"]:::subproc
+        P32["3.2 Dense Query Vector Embedder<br>Generates normalized 384-dim dense vector u"]:::subproc
+        P33["3.3 Precedent Vector Matcher<br>Qdrant Cosine Match [Sim >= 0.60] + JSONL Fallback"]:::subproc
+        P34["3.4 Suspect Feature Normalizer<br>MinMax scaling & One-Hot categorical encoding"]:::subproc
+        P35["3.5 KNN Modus Operandi Matcher<br>Cosine Distance Metric<br>Retrieves Top-K matching historical offenders"]:::subproc
+        P36["3.6 Random Forest Risk Classifier<br>100 Trees Gini Split<br>Predicts Low, Medium, High Recidivism Risk"]:::subproc
+    end
+
+    %% Stores for Retrieval
+    D3[("[(D3)] Statutory Master Catalog<br>BNS / BNSS / Constitution JSONL")]:::store
+    D4[("[(D4)] Qdrant Vector Space<br>10,000+ Case Judgments")]:::store
+    D5[("[(D5)] Criminal Registry & Weights<br>5,000+ Profiles & .joblib Models")]:::store
+
+    %% Sub-processes of 4.0: LangGraph Orchestration
+    subgraph P4_SUB["4.0 LangGraph Multi-Agent State Synthesis"]
+        P41["4.1 PipelineState Aggregator<br>Constructs typed multi-context DAG dictionary"]:::subproc
+        P42["4.2 Multi-Tier LLM Dispatcher<br>Gemini 1.5 Flash to Groq LLaMA-3.3 to Heuristics"]:::subproc
+        P43["4.3 Multi-Lingual Drafting Formatter<br>SC Order XXI [EN] / 11 Regional Legal Templates"]:::subproc
+    end
+
+    %% Sub-processes of 5.0: Citation Verification
+    subgraph P5_SUB["5.0 Citation Verification & Grounding Gateway"]
+        P51["5.1 Regex Citation Tokenizer<br>Extracts all cited sections Scited from generated text"]:::audit
+        P52["5.2 Set-Intersection Grounding Evaluator<br>Computes Cg = Intersection / Total * 100%"]:::audit
+        P53["5.3 Hallucination Red-Flag Quarantiner<br>Attaches verification badge or warning flags"]:::audit
+    end
+
+    OUT["6.0 FORMATTED COURT PETITION & JUDICIAL DOSSIER"]:::output
+
+    %% Wiring of Level 2 Processes
+    D1 --> P21 & P22
+    P21 --> P23
+    P22 & P23 --> D2
+
+    %% 2.0 to 3.0 Lookups
+    D2 -->|"Normalized Applied Codes"| P31
+    D3 <-->|"Query Exact Clauses & Penal Limits"| P31
+
+    D2 -->|"Factual Crime Summary String"| P32
+    P32 -->|"Dense Vector u"| P33
+    D4 <-->|"10k Case Chunks & SCC Citations"| P33
+
+    D2 -->|"Suspect Traits & Crime MO"| P34
+    P34 -->|"Feature Vector xq"| P35 & P36
+    D5 <-->|"Historical Profiles & KNN Distances"| P35
+    D5 <-->|"100 Estimators Decision Trees"| P36
+
+    %% Feed into LangGraph 4.0
+    P31 -->|"Statutory Rules & Safeguards"| P41
+    P33 -->|"Landmark Rulings & SCC Citations"| P41
+    P35 -->|"Matched Syndicate Profiles"| P41
+    P36 -->|"Recidivism & Flight Risk Score"| P41
+    D2 -->|"Original Incident Facts & Allegations"| P41
+
+    P41 --> P42
+    P42 --> P43
+    P43 -->|"Draft Legal Document"| P51
+
+    %% Verification Gateway
+    P51 --> P52
+    D3 -.->|"Canonical Statutory Master Catalog"| P52
+    P52 --> P53
+    P53 -->|"Audited Petitions + Grounding Badge"| OUT

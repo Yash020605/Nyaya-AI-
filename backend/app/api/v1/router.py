@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import research, drafting, admin, report
+from app.api.v1 import research, drafting, admin, report, ml_retriever
 
 api_router = APIRouter()
 
@@ -34,3 +34,4 @@ api_router.include_router(research.router, prefix="/research", tags=["research"]
 api_router.include_router(drafting.router, prefix="/drafting", tags=["drafting"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
 api_router.include_router(report.router, prefix="/report", tags=["report"])
+api_router.include_router(ml_retriever.router, prefix="/ml-retriever", tags=["ml-retriever"])
